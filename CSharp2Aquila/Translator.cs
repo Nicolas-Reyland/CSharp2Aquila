@@ -67,8 +67,7 @@ namespace CSharp2Aquila
                 (current, method) => current + translateMethodDeclaration(method) + "\n");
             
             // call the Main function at the end
-            s += "/** Manually call the 'Main' function here **/\n";
-            s += "Main()\n";
+            s += "\n/** Manually call the 'Main' function here **/\nMain()\n";
             
             return s;
         }
@@ -172,17 +171,18 @@ namespace CSharp2Aquila
         {
             //
 
-            return addTabs() + expression_statement;
+            return addTabs() + expression_statement + " // RAW (untouched)\n";
         }
 
         private static string translateWhileStatement(WhileStatementSyntax while_statement)
         {
+            string condition = translateExpression(while_statement.Condition);
             incrCodeDepth();
-            //
-            
+            string content = addTabs() + "// while-loop content\n";
+            content += addTabs() + "/**" + while_statement.Statement + "**/\n";
             decrCodeDepth();
 
-            return addTabs() + "while ()";
+            return addTabs() + $"while ({condition})\n" + content + addTabs() + "end-while\n";
         }
 
         private static string translateForStatement(ForStatementSyntax for_statement)
@@ -190,6 +190,8 @@ namespace CSharp2Aquila
             string start = handleDeclaration(for_statement.Declaration);
             string stop = translateExpression(for_statement.Condition);
             string step = translateExpression(for_statement.Incrementors[0]);
+
+            string for_string = addTabs() + $"for ({start}, {stop}, {step})\n";
 
             // string content = "";
             /*var t = for_statement.ChildTokens().GetEnumerator();
@@ -200,10 +202,9 @@ namespace CSharp2Aquila
             {
                 Console.WriteLine("\tst: " + attribute_list.Attributes);
             }
+            for_string += addTabs() + "// for-loop content\n";
+            for_string += addTabs() + "/**" + for_statement.Statement + "**/\n";
             decrCodeDepth();
-
-            string for_string = addTabs() + $"for ({start}, {stop}, {step})\n";
-            for_string += addTabs(_code_depth + 1) + "// for-loop content\n";
             for_string += addTabs() + "end-for\n";
 
             return for_string;
@@ -216,6 +217,7 @@ namespace CSharp2Aquila
             incrCodeDepth();
             string content = addTabs() + "// if-content\n";
             if_string += content;
+            if_string += addTabs() + "/**" + if_statement.Statement + "**/\n";
             // else statement
             if (if_statement.Else != null && if_statement.Else.Statement.AttributeLists.Any())
             {
