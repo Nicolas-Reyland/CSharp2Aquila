@@ -15,7 +15,7 @@ namespace CSharp2Aquila
 
             // translate source code
             SyntaxTree tree = CSharpSyntaxTree.ParseText(src_code);
-            Translator.traverseTree(tree);
+            //Translator.traverseTree(tree);
             string source_code = "/** Automatic translation of CSharp source code to Aquila by https://github.com/Nicolas-Reyland/CSharp2Aquila **/\n\n" +
                                  Translator.translateAll(tree);
             
