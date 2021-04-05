@@ -62,6 +62,7 @@ namespace CSharp2Aquila
                 (current, method) => current + translateMethodDeclaration(method) + "\n");
             
             // call the Main function at the end
+            s += "/** Manually call the 'Main' function here **/\n";
             s += "Main()\n";
             
             return s;
@@ -69,8 +70,23 @@ namespace CSharp2Aquila
 
         private static string translateType(TypeSyntax type_syntax)
         {
-            if type_syntax.
-            return type_syntax.ToString();
+            string s = type_syntax.ToString();
+
+            // basic types
+            if (s == "int" || s == "float" || s == "bool")
+            {
+                return s;
+            }
+
+            // enumerable types
+            if (s.EndsWith("[]"))
+            {
+                return "list"; // NOT COOL !
+            }
+
+            return "auto";
+
+            //throw new NotImplementedException("Unsupported type: " + s);
         }
 
         private static string translateMethodDeclaration(MethodDeclarationSyntax method_declaration)

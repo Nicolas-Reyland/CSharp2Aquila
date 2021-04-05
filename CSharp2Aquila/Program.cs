@@ -1,9 +1,6 @@
-﻿using System;
-using System.IO;
-using static System.Console;
+﻿using System.IO;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharp2Aquila
 {
@@ -11,15 +8,23 @@ namespace CSharp2Aquila
     {
         static void Main(string[] args)
         {
+            // read source code
             StreamReader file = new StreamReader(@"C:\Users\Nicolas\Documents\EPITA\Code Vultus\Iris\csharp merge sort.cs");
             string src_code = file.ReadToEnd();
             file.Close();
 
+            // translate source code
             SyntaxTree tree = CSharpSyntaxTree.ParseText(src_code);
             Translator.traverseTree(tree);
-
-            //
+            string source_code = "/** Automatic translation of CSharp source code to Aquila by https://github.com/Nicolas-Reyland/CSharp2Aquila **/\n\n" +
+                                 Translator.translateAll(tree);
             
+            // write source code
+            StreamWriter sw =
+                new StreamWriter(@"C:\Users\Nicolas\Documents\EPITA\Code Vultus\Iris\csharp merge sort translation.aq");
+            sw.Write(source_code);
+            sw.Close();
+
 /*
             const string PROGRAM_TEXT = 
 @"using System;
