@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -53,11 +54,91 @@ namespace CSharp2Aquila
         public static string translateAll(SyntaxTree tree)
         {
             CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
+            var name_space_content = (NamespaceDeclarationSyntax) root.Members[0];
+            var program_class = (ClassDeclarationSyntax) name_space_content.Members[0]; // assume this (that first class is Program)
+            
+            // convert all functions to a string format & call the 'Main' function at the end in Aquila
+            string s = program_class.Members.Select(x => (MethodDeclarationSyntax) x).Aggregate("",
+                (current, method) => current + translateMethodDeclaration(method) + "\n");
+            
+            // call the Main function at the end
+            s += "Main()\n";
+            
+            return s;
+        }
+
+        private static string translateType(TypeSyntax type_syntax)
+        {
+            if type_syntax.
+            return type_syntax.ToString();
+        }
+
+        private static string translateMethodDeclaration(MethodDeclarationSyntax method_declaration)
+        {
+            string name = method_declaration.Identifier.ToString();
+            // extract the parameter names (no type checking done there)
+            IEnumerable<string> parameters = method_declaration.ParameterList.Parameters.Select(x => x.Identifier.ToString());
+            string return_type = translateType(method_declaration.ReturnType);
+            
+            // add each statement
+            if (method_declaration.Body == null) throw new Exception("Body is null !!");
+            string statements = method_declaration.Body.Statements.Aggregate("",
+                (current, statement) => current + translateStatement(statement) + "\n");
+
+            string function_string = $"function recursive {return_type} {name}(";
+            function_string += parameters.Aggregate("", (current, st) => current + st + ", ");
+
+            return function_string + "\n" + statements;
+        }
+
+        private static string translateStatement(StatementSyntax statement_syntax)
+        {
+            switch (statement_syntax)
+            {
+                case ExpressionStatementSyntax expression_statement_syntax:
+                    return translateExpressionStatement(expression_statement_syntax);
+                case WhileStatementSyntax while_statement_syntax:
+                    return translateWhileStatement(while_statement_syntax);
+                case ForStatementSyntax for_statement_syntax:
+                    return translateForStatement(for_statement_syntax);
+                case IfStatementSyntax if_statement_syntax:
+                    return translateIfStatement(if_statement_syntax);
+                case LocalDeclarationStatementSyntax local_declaration_statement_syntax:
+                    return translateLocalDeclarationStatement(local_declaration_statement_syntax);
+                default:
+                    throw new NotImplementedException(statement_syntax + "is not supported. Kind: " + statement_syntax.Kind());
+            }
+        }
+
+        private static string translateExpressionStatement(ExpressionStatementSyntax expression_statement)
+        {
+            //
 
             return "";
         }
 
-        private static string translateMethodDeclaration(MethodDeclarationSyntax method_declaration_syntax)
+        private static string translateWhileStatement(WhileStatementSyntax while_statement)
+        {
+            //
+
+            return "";
+        }
+
+        private static string translateForStatement(ForStatementSyntax for_statement)
+        {
+            //
+
+            return "";
+        }
+
+        private static string translateIfStatement(IfStatementSyntax if_statement)
+        {
+            //
+
+            return "";
+        }
+
+        private static string translateLocalDeclarationStatement(LocalDeclarationStatementSyntax local_declaration_statement)
         {
             //
 
