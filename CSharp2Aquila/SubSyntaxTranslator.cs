@@ -51,14 +51,14 @@ namespace CSharp2Aquila
                     // special case: remove double quotes
                     if (arguments.Count > 1)
                     {
-                        return (false, "/** TRANSLATOR WARNING: only index '0' is supported for the function 'CopyTo' **/ " + member_access);
+                        return (false, Translator.translatorWarning("only index '0' is supported for the function 'CopyTo'", "") + member_access);
                     }
 
                     if (raw_expr.StartsWith("\""))
                     {
                         if (!raw_expr.EndsWith("\""))
                         {
-                            return (false, "/** TRANSLATOR WARNING: starting with double quotes, but not ending with double quotes ... (unsupported) **/ " + member_access);
+                            return (false, Translator.translatorWarning("starting with double quotes, but not ending with double quotes ... (unsupported)", "[unsupported usage] " + member_access) + member_access);
                         }
                         func_str = "print_str_endl(";
                         func_str += raw_expr.Substring(1, raw_expr.Length - 2); // remove first and last chars ('"' and '"')
@@ -67,7 +67,7 @@ namespace CSharp2Aquila
                     }
                     else
                     {
-                        func_str = "/** TRANSLATOR WARNING: should add manually a 'print_endl()' call after this **/ print(";
+                        func_str = Translator.translatorWarning("should add manually a 'print_endl()' call after this", "[missing element]") + " print(";
                         func_str += ExpressionTranslator.translateExpression(arguments[0].Expression);
 
                         return (true, func_str + ")");
@@ -76,14 +76,14 @@ namespace CSharp2Aquila
                     // same as previous
                     if (arguments.Count > 1)
                     {
-                        return (false, "/** TRANSLATOR WARNING: only index '0' is supported for the function 'CopyTo' **/ " + member_access);
+                        return (false, Translator.translatorWarning("only index '0' is supported for the function 'CopyTo'", "[unsupported usage]") + member_access);
                     }
 
                     if (raw_expr.StartsWith("\""))
                     {
                         if (!raw_expr.EndsWith("\""))
                         {
-                            return (false, "/** TRANSLATOR WARNING: starting with double quotes, but not ending with double quotes ... (unsupported) **/ " + member_access);
+                            return (false, Translator.translatorWarning("starting with double quotes, but not ending with double quotes ... (unsupported)", "[unsupported usage] " + member_access) + member_access);
                         }
                         func_str = "print_str(";
                         func_str += raw_expr.Substring(1, raw_expr.Length - 2); // remove first and last chars ('"' and '"')
@@ -99,7 +99,7 @@ namespace CSharp2Aquila
                     }
                 case "CopyTo":
                     // unsupported use of CopyTo function ?
-                    if (arguments.Count != 2) return (false, "/** TRANSLATOR WARNING: num args should be 2 for 'CopyTo' ?! **/ " + member_access);
+                    if (arguments.Count != 2) return (false, Translator.translatorWarning("num args should be 2 for 'CopyTo' ?!", "[unsupported usage] " + member_access) + member_access);
                     // extract the various expressions
                     string var_expression = ExpressionTranslator.translateExpression(member_access.Expression);
                     string target_var_expression = ExpressionTranslator.translateExpression(arguments[0].Expression);
@@ -108,7 +108,7 @@ namespace CSharp2Aquila
                     if (index != "0")
                     {
                         // manual copy of the elements ? idk
-                        return (false, "/** TRANSLATOR WARNING: only index '0' is supported for the function 'CopyTo' **/ " + member_access);
+                        return (false, Translator.translatorWarning("only index '0' is supported for the function 'CopyTo'", "[unsupported usage] " + member_access) + member_access);
                     }
                     // copy the whole list
                     func_str = $"{target_var_expression} = copy_list({var_expression})";

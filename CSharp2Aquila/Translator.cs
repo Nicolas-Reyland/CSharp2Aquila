@@ -13,7 +13,7 @@ namespace CSharp2Aquila
          * look at Functions.cs - approx. line 535: support all the functions in the 'functions_dict'
          */
 
-        private static int _code_depth = 0;
+        private static int _code_depth; // = 0
         private static string addTabs(int n = -1) => new string('\t', n == -1 ? _code_depth : n);
         private static void incrCodeDepth() => _code_depth++;
         private static void decrCodeDepth() => _code_depth = _code_depth == 0 ? 0 : _code_depth - 1;
@@ -73,7 +73,7 @@ namespace CSharp2Aquila
             return s;
         }
 
-        public static string injectSourceCode(string source_code, bool add_curly_braces) =>
+        private static string injectSourceCode(string source_code, bool add_curly_braces) =>
 @"namespace CodeInjection
 {
     class Program
@@ -83,7 +83,7 @@ namespace CSharp2Aquila
     }
 }";
 
-        public static SyntaxList<StatementSyntax> extractSyntaxList(string source_code)
+        private static SyntaxList<StatementSyntax> extractSyntaxList(string source_code)
         {
             SyntaxTree tree = CSharpSyntaxTree.ParseText(source_code);
             CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
@@ -94,7 +94,7 @@ namespace CSharp2Aquila
             return method.Body.Statements;
         }
 
-        public static string translateMethodDeclaration(MethodDeclarationSyntax method_declaration)
+        private static string translateMethodDeclaration(MethodDeclarationSyntax method_declaration)
         {
             string name = method_declaration.Identifier.ToString();
             // extract the parameter names (no type checking done there)
@@ -122,7 +122,7 @@ namespace CSharp2Aquila
             return function_string + "\n" + statements + "\nend-function";
         }
 
-        public static string translateStatement(StatementSyntax statement_syntax)
+        private static string translateStatement(StatementSyntax statement_syntax)
         {
             switch (statement_syntax)
             {
@@ -140,12 +140,12 @@ namespace CSharp2Aquila
                     return translateReturnStatement(return_statement_syntax);
                 default:
                     Console.WriteLine("[!] " + statement_syntax.GetType() + " is not supported.\n\tkind: " + statement_syntax.Kind());
-                    return "/** TRANSLATOR WARNING: Unknown statement :\n\n" + statement_syntax + "\n\n**/";
+                    return translatorWarning("Unknown statement ", statement_syntax.ToString()) + statement_syntax;
             }
         }
 
         // Statements -> these functions usually add a '\n' at the end
-        public static string translateExpressionStatement(ExpressionStatementSyntax expression_statement)
+        private static string translateExpressionStatement(ExpressionStatementSyntax expression_statement)
         {
             //Console.WriteLine(expression_statement);
             // Console.WriteLine("\t" + expression_statement.AttributeLists.Count);
@@ -171,7 +171,7 @@ namespace CSharp2Aquila
             return addTabs() + expression_statement + " // RAW (untouched)\n";
         }
 
-        public static string translateWhileStatement(WhileStatementSyntax while_statement)
+        private static string translateWhileStatement(WhileStatementSyntax while_statement)
         {
             string condition = ExpressionTranslator.translateExpression(while_statement.Condition);
 
@@ -190,7 +190,7 @@ namespace CSharp2Aquila
             return addTabs() + $"while ({condition})\n" + content + addTabs() + "end-while\n";
         }
 
-        public static string translateForStatement(ForStatementSyntax for_statement)
+        private static string translateForStatement(ForStatementSyntax for_statement)
         {
             string start = SubSyntaxTranslator.handleDeclaration(for_statement.Declaration);
             string stop = ExpressionTranslator.translateExpression(for_statement.Condition);
@@ -214,7 +214,7 @@ namespace CSharp2Aquila
             return for_string;
         }
 
-        public static string translateIfStatement(IfStatementSyntax if_statement)
+        private static string translateIfStatement(IfStatementSyntax if_statement)
         {
             string condition = ExpressionTranslator.translateExpression(if_statement.Condition);
             string if_string = addTabs() + $"if ({condition})\n";
@@ -247,7 +247,7 @@ namespace CSharp2Aquila
             return if_string + addTabs() + "end-if\n";
         }
 
-        public static string translateLocalDeclarationStatement(LocalDeclarationStatementSyntax declaration_statement)
+        private static string translateLocalDeclarationStatement(LocalDeclarationStatementSyntax declaration_statement)
         {
             /*Console.WriteLine("variable decl: " + declaration_statement.Declaration);
             Console.WriteLine("modifiers: " + declaration_statement.Modifiers);
@@ -259,11 +259,17 @@ namespace CSharp2Aquila
 
             return addTabs() + SubSyntaxTranslator.handleDeclaration(declaration_statement.Declaration);
         }
-        
-        public static string translateReturnStatement(ReturnStatementSyntax return_statement)
+
+        private static string translateReturnStatement(ReturnStatementSyntax return_statement)
         {
             // better like this than using the '=>' (code consistency & readability)
             return addTabs() + "return(" + ExpressionTranslator.translateExpression(return_statement.Expression) + ")";
+        }
+
+        public static string translatorWarning(string msg, string warn_msg)
+        {
+            Console.WriteLine("Warning: " + msg + " :: " + warn_msg);
+            return "/** TRANSLATOR WARNING: " + msg + "**/ ";
         }
     }
 }

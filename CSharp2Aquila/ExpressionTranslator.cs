@@ -38,7 +38,10 @@ namespace CSharp2Aquila
                 return token.ToString();
             }
 
-            if (token.Value is int || !var_prefix)
+            if (token.Value is int ||
+                !var_prefix ||
+                token.ValueText == "true" ||
+                token.ValueText == "false")
             {
                 return token.ValueText;
             }
@@ -75,13 +78,16 @@ namespace CSharp2Aquila
                     return translateMemberAccessExpression(member_access);
                 case ParenthesizedExpressionSyntax parenthesized_expression:
                     return translateParenthesizedExpression(parenthesized_expression);
+                case PrefixUnaryExpressionSyntax prefix_unary_expression_syntax: // e.g. "-6"
+                    return matchOperatorToken(prefix_unary_expression_syntax.OperatorToken) +
+                           translateExpression(prefix_unary_expression_syntax.Operand);
                 default:
                     Console.WriteLine("[!] Unsupported expression type: " + expression + "\n\tkind: " + expression.Kind() + "\n\t" + expression.GetType());
                     return expression.ToString();
             }
         }
 
-        private static string translateIdentifierName(IdentifierNameSyntax identifier)
+        private static string translateIdentifierName(IdentifierNameSyntax identifier) // maybe change type to SimpleNameSyntax ?
         {
             // maybe there will be more to this, so let's keep it in a function
             return translateToken(identifier.Identifier);
@@ -136,14 +142,29 @@ namespace CSharp2Aquila
         private static string translateImplicitArrayCreationExpression(
             ImplicitArrayCreationExpressionSyntax implicit_array_creation)
         {
-            //
+            /*Console.WriteLine("implicit array creation: " + implicit_array_creation);
+            Console.WriteLine("\t" + implicit_array_creation.Initializer);
+            Console.WriteLine("\t" + implicit_array_creation.Initializer.Expressions);
+            Console.WriteLine("\t" + implicit_array_creation.Initializer.Expressions.Count);
+            Console.WriteLine("\t" + implicit_array_creation.Initializer.Expressions[0]);*/
 
-            return "";
+            string list_value = "";
+            int n = implicit_array_creation.Initializer.Expressions.Count; // number of elements in the array
+            for (int i = 0; i < n; i++)
+            {
+                list_value += translateExpression(implicit_array_creation.Initializer.Expressions[i]);
+                if (i != n - 1)
+                {
+                    list_value += ", ";
+                }
+            }
+
+            return "[" + list_value + "]";
         }
         
         private static string translateArrayCreationExpression(ArrayCreationExpressionSyntax array_creation)
         { // e.g. int[] x = new int[5];
-            Console.WriteLine("array creation: " + array_creation);
+            /*Console.WriteLine("array creation: " + array_creation);
             Console.WriteLine("\t" + array_creation.Type);
             Console.WriteLine("\t" + array_creation.NewKeyword);
             Console.WriteLine("\t" + array_creation.Initializer);
@@ -153,26 +174,25 @@ namespace CSharp2Aquila
             Console.WriteLine("\t" + array_creation.Type.RankSpecifiers[0]);
             Console.WriteLine("\t" + array_creation.Type.RankSpecifiers[0].Rank);
             Console.WriteLine("\t" + array_creation.Type.RankSpecifiers[0].Sizes.Count);
-            Console.WriteLine("\t" + array_creation.Type.RankSpecifiers[0].Sizes[0]);
-            //Console.WriteLine("\t" + );
-            //Console.WriteLine("\t" + );
+            Console.WriteLine("\t" + array_creation.Type.RankSpecifiers[0].Sizes[0]);*/
+            // Console.WriteLine("\t" + );
 
             string type_string = SubSyntaxTranslator.translateType(array_creation.Type.ElementType);
             if (array_creation.Type.RankSpecifiers.Count == 0 || // e.g. string[] (possible ?)
                 array_creation.Type.RankSpecifiers[0].Sizes.Count == 0 || // same as previous
                 !_default_values_per_type.ContainsKey(type_string)) // unrecognized type
             {
-                return "/** TRANSLATOR WARNING: unsupported rank or type **/ " + array_creation;
+                return Translator.translatorWarning("unsupported rank or type", "[unsupported usage] " + array_creation) + array_creation;
             }
 
             string default_value = _default_values_per_type[type_string];
             int rank = int.Parse(array_creation.Type.RankSpecifiers[0].Sizes[0].ToString());
 
             string list_value = "";
-            for (int i = 0; i < rank; i++)
+            for (int i = 0; i++ < rank;)
             {
                 list_value += default_value;
-                if (i != rank - 1)
+                if (i != rank)
                 {
                     list_value += ", ";
                 }
@@ -189,7 +209,7 @@ namespace CSharp2Aquila
                     return $"length({translateExpression(member_access.Expression)})";
                 default:
                     Console.WriteLine("[!] Unsupported member access: " + member_access);
-                    return "/** TRANSLATOR WARNING: unsupported member access keyword **/ " + member_access;
+                    return Translator.translatorWarning("unsupported member access keyword", "[unsupported usage] " + member_access) + member_access;
             }
         }
 
@@ -251,7 +271,7 @@ namespace CSharp2Aquila
                     return "&";
                 default:
                     Console.WriteLine("[!] unknown operator: " + operator_.ValueText);
-                    return "/** TRANSLATOR WARNING: unknown operator **/ " + operator_.ValueText;
+                    return Translator.translatorWarning("unknown operator", "[unsupported usage] " + operator_.ValueText) + operator_.ValueText;
             }
         }
     }
