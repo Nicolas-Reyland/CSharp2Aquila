@@ -222,7 +222,7 @@ namespace CSharp2Aquila
             for_string += addTabs() + "// for-loop content\n";
             foreach (StatementSyntax statement in statement_syntaxes)
             {
-                Console.WriteLine("\tst: " + statement);
+                for_string += addTabs() + translateStatement(statement) + "\n";
             }
             decrCodeDepth();
             for_string += addTabs() + "end-for\n";
@@ -235,15 +235,28 @@ namespace CSharp2Aquila
             string condition = translateExpression(if_statement.Condition);
             string if_string = addTabs() + $"if ({condition})\n";
             incrCodeDepth();
-            string content = addTabs() + "// if-content\n";
-            if_string += content;
-            if_string += addTabs() + "/**" + if_statement.Statement + "**/\n";
+            if_string += addTabs() + "// if-content\n";
+            // extract if content
+            string if_source_code = injectSourceCode(if_statement.Statement.ToString(), false);
+            SyntaxList<StatementSyntax> statement_syntaxes = extractSyntaxList(if_source_code);
+            // add if statements
+            foreach (StatementSyntax statement_syntax in statement_syntaxes)
+            {
+                if_string += addTabs() + translateStatement(statement_syntax) + "\n";
+            }
+
             // else statement
-            if (if_statement.Else != null && if_statement.Else.Statement.AttributeLists.Any())
+            if (if_statement.Else != null)
             {
                 if_string += addTabs(_code_depth - 1) + "else\n";
-                string else_content = addTabs() + "// else-content\n";
-                if_string += else_content;
+                // extract else content
+                string else_source_code = injectSourceCode(if_statement.Else.Statement.ToString(), false);
+                SyntaxList<StatementSyntax> else_statement_syntaxes = extractSyntaxList(else_source_code);
+                // add else content
+                foreach (StatementSyntax statement_syntax in else_statement_syntaxes)
+                {
+                    if_string += addTabs() + translateStatement(statement_syntax) + "\n";
+                }
             }
             decrCodeDepth();
 
