@@ -9,8 +9,8 @@ namespace CSharp2Aquila
 {
     public static class Translator
     {
-        /* hm
-         * mh
+        /* TODO:
+         * look at Functions.cs - approx. line 535: support all the functions in the 'functions_dict'
          */
 
         private static int _code_depth = 0;
@@ -40,6 +40,7 @@ namespace CSharp2Aquila
                 }
                 // Console.WriteLine("Modifiers: " + method.Modifiers); // -> e.g. static
                 Console.WriteLine("ReturnType: " + method.ReturnType);
+                if (method.Body == null) throw new Exception("Body of method is null");
                 Console.WriteLine("Body:");
                 foreach (StatementSyntax statement in method.Body.Statements)
                 {
@@ -72,7 +73,7 @@ namespace CSharp2Aquila
             return s;
         }
 
-        private static string injectSourceCode(string source_code, bool add_curly_braces) =>
+        public static string injectSourceCode(string source_code, bool add_curly_braces) =>
 @"namespace CodeInjection
 {
     class Program
@@ -82,7 +83,7 @@ namespace CSharp2Aquila
     }
 }";
 
-        private static SyntaxList<StatementSyntax> extractSyntaxList(string source_code)
+        public static SyntaxList<StatementSyntax> extractSyntaxList(string source_code)
         {
             SyntaxTree tree = CSharpSyntaxTree.ParseText(source_code);
             CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
@@ -93,12 +94,12 @@ namespace CSharp2Aquila
             return method.Body.Statements;
         }
 
-        private static string translateMethodDeclaration(MethodDeclarationSyntax method_declaration)
+        public static string translateMethodDeclaration(MethodDeclarationSyntax method_declaration)
         {
             string name = method_declaration.Identifier.ToString();
             // extract the parameter names (no type checking done there)
             IEnumerable<string> parameters = method_declaration.ParameterList.Parameters.Select(x => x.Identifier.ToString());
-            string return_type = translateType(method_declaration.ReturnType);
+            string return_type = SubSyntaxTranslator.translateType(method_declaration.ReturnType);
             
             // add each statement
             if (method_declaration.Body == null) throw new Exception("Body is null !!");
@@ -121,7 +122,7 @@ namespace CSharp2Aquila
             return function_string + "\n" + statements + "\nend-function";
         }
 
-        private static string translateStatement(StatementSyntax statement_syntax)
+        public static string translateStatement(StatementSyntax statement_syntax)
         {
             switch (statement_syntax)
             {
@@ -138,79 +139,62 @@ namespace CSharp2Aquila
                 case ReturnStatementSyntax return_statement_syntax:
                     return translateReturnStatement(return_statement_syntax);
                 default:
-                    throw new NotImplementedException(statement_syntax + "is not supported. Kind: " + statement_syntax.Kind());
+                    Console.WriteLine("[!] " + statement_syntax.GetType() + " is not supported.\n\tkind: " + statement_syntax.Kind());
+                    return "/** TRANSLATOR WARNING: Unknown statement :\n\n" + statement_syntax + "\n\n**/";
             }
         }
 
-        // Other (more global objects)
-        private static string translateExpression(ExpressionSyntax expression)
+        // Statements -> these functions usually add a '\n' at the end
+        public static string translateExpressionStatement(ExpressionStatementSyntax expression_statement)
         {
-            //
+            //Console.WriteLine(expression_statement);
+            // Console.WriteLine("\t" + expression_statement.AttributeLists.Count);
+            // Console.WriteLine("\t" + expression_statement.AllowsAnyExpression);
+            /*Console.WriteLine("\t" + expression_statement.Expression.GetType());
+            Console.WriteLine("\t" + expression_statement.Expression.Kind());
+            Console.WriteLine();*/
 
-            return expression.ToString();
-        }
-
-        private static string translateToken(SyntaxToken token)
-        {
-            //
-
-            return token.ToString();
-        }
-
-        private static string handleDeclaration(VariableDeclarationSyntax variable_declaration)
-        {
-            string type_string = translateType(variable_declaration.Type);
-            string var_name = translateToken(variable_declaration.Variables[0].Identifier);
-            string value = translateExpression(variable_declaration.Variables[0].Initializer?.Value);
-
-            return $"decl {type_string} {var_name} ({value})";
-        }
-
-        private static string translateType(TypeSyntax type_syntax)
-        {
-            string s = type_syntax.ToString();
-
-            // basic types
-            if (s == "int" || s == "float" || s == "bool")
+            switch (expression_statement.Expression)
             {
-                return s;
+                case AssignmentExpressionSyntax assignment:
+                    return addTabs() + ExpressionTranslator.translateAssignmentExpression(assignment) + "\n";
+                case InvocationExpressionSyntax invocation:
+                    return addTabs() + ExpressionTranslator.translateInvocationExpression(invocation) + "\n";
+                default:
+                    Console.WriteLine("[!] Unsupported expression:\n\t" +
+                                      "raw: " + expression_statement.Expression +
+                                      "\n\ttype: " + expression_statement.Expression.GetType() +
+                                      "\n\tkind: " + expression_statement.Expression.Kind());
+                    break;
             }
-
-            // enumerable types
-            if (s.EndsWith("[]"))
-            {
-                return "list"; // NOT COOL !
-            }
-
-            return "auto";
-
-            //throw new NotImplementedException("Unsupported type: " + s);
-        }
-
-        // Statements
-        private static string translateExpressionStatement(ExpressionStatementSyntax expression_statement)
-        {
-            //
 
             return addTabs() + expression_statement + " // RAW (untouched)\n";
         }
 
-        private static string translateWhileStatement(WhileStatementSyntax while_statement)
+        public static string translateWhileStatement(WhileStatementSyntax while_statement)
         {
-            string condition = translateExpression(while_statement.Condition);
+            string condition = ExpressionTranslator.translateExpression(while_statement.Condition);
+
             incrCodeDepth();
-            string content = addTabs() + "// while-loop content\n";
-            content += addTabs() + "/**" + while_statement.Statement + "**/\n";
+            // extract while-loop statements
+            string while_loop_source_code = injectSourceCode(while_statement.Statement.ToString(), false);
+            SyntaxList<StatementSyntax> statement_syntaxes = extractSyntaxList(while_loop_source_code);
+            // add statements
+            string content = "";
+            foreach (StatementSyntax statement_syntax in statement_syntaxes)
+            {
+                content += addTabs() + translateStatement(statement_syntax) + "\n";
+            }
             decrCodeDepth();
 
             return addTabs() + $"while ({condition})\n" + content + addTabs() + "end-while\n";
         }
 
-        private static string translateForStatement(ForStatementSyntax for_statement)
+        public static string translateForStatement(ForStatementSyntax for_statement)
         {
-            string start = handleDeclaration(for_statement.Declaration);
-            string stop = translateExpression(for_statement.Condition);
-            string step = translateExpression(for_statement.Incrementors[0]);
+            string start = SubSyntaxTranslator.handleDeclaration(for_statement.Declaration);
+            string stop = ExpressionTranslator.translateExpression(for_statement.Condition);
+            string step = ExpressionTranslator.translateExpression(for_statement.Incrementors[0]);
 
             string for_string = addTabs() + $"for ({start}, {stop}, {step})\n";
 
@@ -230,9 +214,9 @@ namespace CSharp2Aquila
             return for_string;
         }
 
-        private static string translateIfStatement(IfStatementSyntax if_statement)
+        public static string translateIfStatement(IfStatementSyntax if_statement)
         {
-            string condition = translateExpression(if_statement.Condition);
+            string condition = ExpressionTranslator.translateExpression(if_statement.Condition);
             string if_string = addTabs() + $"if ({condition})\n";
             incrCodeDepth();
             if_string += addTabs() + "// if-content\n";
@@ -263,7 +247,7 @@ namespace CSharp2Aquila
             return if_string + addTabs() + "end-if\n";
         }
 
-        private static string translateLocalDeclarationStatement(LocalDeclarationStatementSyntax declaration_statement)
+        public static string translateLocalDeclarationStatement(LocalDeclarationStatementSyntax declaration_statement)
         {
             /*Console.WriteLine("variable decl: " + declaration_statement.Declaration);
             Console.WriteLine("modifiers: " + declaration_statement.Modifiers);
@@ -273,13 +257,13 @@ namespace CSharp2Aquila
                 Console.WriteLine("\tinit: " + variable_declarator_syntax.Initializer);
             }*/
 
-            return addTabs() + handleDeclaration(declaration_statement.Declaration);
+            return addTabs() + SubSyntaxTranslator.handleDeclaration(declaration_statement.Declaration);
         }
         
-        private static string translateReturnStatement(ReturnStatementSyntax return_statement)
+        public static string translateReturnStatement(ReturnStatementSyntax return_statement)
         {
             // better like this than using the '=>' (code consistency & readability)
-            return addTabs() + "return(" + translateExpression(return_statement.Expression) + ")";
+            return addTabs() + "return(" + ExpressionTranslator.translateExpression(return_statement.Expression) + ")";
         }
     }
 }
