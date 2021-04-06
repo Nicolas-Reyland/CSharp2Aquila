@@ -72,6 +72,27 @@ namespace CSharp2Aquila
             return s;
         }
 
+        private static string injectSourceCode(string source_code, bool add_curly_braces) =>
+@"namespace CodeInjection
+{
+    class Program
+    {
+        static void Main(string[] args)
+" + (add_curly_braces ? "{" : "") + source_code + (add_curly_braces ? "}" : "") + @"
+    }
+}";
+
+        private static SyntaxList<StatementSyntax> extractSyntaxList(string source_code)
+        {
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(source_code);
+            CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
+            var name_space = (NamespaceDeclarationSyntax) root.Members[0];
+            var program_class = (ClassDeclarationSyntax) name_space.Members[0];
+            var method = (MethodDeclarationSyntax) program_class.Members[0];
+            if (method.Body == null) throw new Exception("Body is null for code extraction");
+            return method.Body.Statements;
+        }
+
         private static string translateMethodDeclaration(MethodDeclarationSyntax method_declaration)
         {
             string name = method_declaration.Identifier.ToString();
@@ -194,16 +215,15 @@ namespace CSharp2Aquila
             string for_string = addTabs() + $"for ({start}, {stop}, {step})\n";
 
             // string content = "";
-            /*var t = for_statement.ChildTokens().GetEnumerator();
-            Console.WriteLine(t.Current);*/
             incrCodeDepth();
-            Console.WriteLine(for_statement.AttributeLists);
-            foreach (AttributeListSyntax attribute_list in for_statement.Statement.AttributeLists)
-            {
-                Console.WriteLine("\tst: " + attribute_list.Attributes);
-            }
+            // extract for-loop content (couldn't find any other way ...) -> did not try SyntaxTree of this for_loop, but idk
+            string for_loop_content = injectSourceCode(for_statement.Statement.ToString(), false);
+            SyntaxList<StatementSyntax> statement_syntaxes = extractSyntaxList(for_loop_content);
             for_string += addTabs() + "// for-loop content\n";
-            for_string += addTabs() + "/**" + for_statement.Statement + "**/\n";
+            foreach (StatementSyntax statement in statement_syntaxes)
+            {
+                Console.WriteLine("\tst: " + statement);
+            }
             decrCodeDepth();
             for_string += addTabs() + "end-for\n";
 
