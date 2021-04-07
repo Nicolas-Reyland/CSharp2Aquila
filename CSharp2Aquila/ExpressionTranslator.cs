@@ -7,21 +7,35 @@ namespace CSharp2Aquila
 {
     public static class ExpressionTranslator
     {
-        private static Dictionary<string, string> _default_values_per_type = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> default_values_per_type = new Dictionary<string, string>
         {
             {
                 "int", "0"
             },
             {
-                "list", "[]"
+                "float", "0f"
             },
             {
                 "bool", "false"
             },
             {
-                "float", "0f"
+                "list", "[]"
             },
         };
+        
+        private static readonly List<string> reserved_keywords = new List<string> {
+            "if", "else", "end-if",
+            "for","end-for",
+            "while", "end-while",
+            "function", "end-function", "recursive",
+            "decl", "safe", "overwrite",
+            "overwrite", // not yet
+            "safe", // not yet
+            "trace",
+            "null", "auto", "int", "float", "bool", "list",
+        };
+        
+        private static string invalidTokenText(string invalid_token) => invalid_token + "_";
 
         public static string translateToken(SyntaxToken token, bool var_prefix = true)
         {
@@ -33,20 +47,25 @@ namespace CSharp2Aquila
             Console.WriteLine("\t" + token.TrailingTrivia);
             Console.WriteLine("\t" + token.LeadingTrivia);*/
 
-            if (token.Value == null)
-            {
-                return token.ToString();
-            }
-
+            // nothing in the token somehow ?
+            if (token.Value == null) return token.ToString();
+            
+            // token has a value in Aquila (or C#)
             if (token.Value is int ||
-                !var_prefix ||
+                token.Value is float ||
+                token.Value is double ||
                 token.ValueText == "true" ||
                 token.ValueText == "false")
-            {
-                return token.ValueText;
-            }
+                return token.Text; // indentation this feels SO wrong + ".Text" instead of ".ValueText" bc floats etc will be printed as ints when possible (e.g. 4.0f -> 4)
 
-            return @"$" + token; // assume this is a variable access ?
+            // ok keyword
+            if (!reserved_keywords.Contains(token.ValueText)) return (var_prefix ? @"$" : "") + token.ValueText; // assume this is a variable access ?
+            
+            // reserved keyword
+            Translator.translatorWarning("token is an Aquila reserved keyword. Changing \"" + token.ValueText + "\" to \"" + invalidTokenText(token.ValueText) + "\"",
+                "[forced src code alteration] token name in reserved keywords");
+            return $"/** \"{token.ValueText}\" -> \"{invalidTokenText(token.ValueText)}\" **/ " + (var_prefix ? @"$" : "") + invalidTokenText(token.ValueText);
+
         }
         
         public static string translateExpression(ExpressionSyntax expression)
@@ -81,8 +100,10 @@ namespace CSharp2Aquila
                 case PrefixUnaryExpressionSyntax prefix_unary_expression_syntax: // e.g. "-6"
                     return matchOperatorToken(prefix_unary_expression_syntax.OperatorToken) +
                            translateExpression(prefix_unary_expression_syntax.Operand);
+                case ObjectCreationExpressionSyntax object_creation:
+                    return translateObjectCreationExpression(object_creation);
                 default:
-                    Console.WriteLine("[!] Unsupported expression type: " + expression + "\n\tkind: " + expression.Kind() + "\n\t" + expression.GetType());
+                    if (Program.verbose) Console.WriteLine("[!] Unsupported expression type: " + expression + "\n\tkind: " + expression.Kind() + "\n\t" + expression.GetType());
                     return expression.ToString();
             }
         }
@@ -106,7 +127,7 @@ namespace CSharp2Aquila
         {
             string left = translateExpression(assignment.Left);
             string right = translateExpression(assignment.Right);
-            string operator_ = assignment.OperatorToken.ValueText; // better .Text ?
+            string operator_ = assignment.OperatorToken.ValueText; // .Text is better for numerical values
             //Console.WriteLine(assignment.OperatorToken);
 
             return $"{left} {operator_} {right}";
@@ -124,7 +145,7 @@ namespace CSharp2Aquila
             // multiple args in accessor ? (e.g. a[b, c])
             if (element_access.ArgumentList.Arguments.Count > 1)
             {
-                Console.WriteLine("[!] Element access with multiple arguments is unsupported");
+                if (Program.verbose) Console.WriteLine("[!] Element access with multiple arguments is unsupported");
                 return "/** multiple arguments for element access unsupported **/ " + element_access;
             }
             // normal element access
@@ -180,12 +201,12 @@ namespace CSharp2Aquila
             string type_string = SubSyntaxTranslator.translateType(array_creation.Type.ElementType);
             if (array_creation.Type.RankSpecifiers.Count == 0 || // e.g. string[] (possible ?)
                 array_creation.Type.RankSpecifiers[0].Sizes.Count == 0 || // same as previous
-                !_default_values_per_type.ContainsKey(type_string)) // unrecognized type
+                !default_values_per_type.ContainsKey(type_string)) // unrecognized type
             {
                 return Translator.translatorWarning("unsupported rank or type", "[unsupported usage] " + array_creation) + array_creation;
             }
 
-            string default_value = _default_values_per_type[type_string];
+            string default_value = default_values_per_type[type_string];
             int rank = int.Parse(array_creation.Type.RankSpecifiers[0].Sizes[0].ToString());
 
             string list_value = "";
@@ -208,7 +229,6 @@ namespace CSharp2Aquila
                 case "Length": case "Count":
                     return $"length({translateExpression(member_access.Expression)})";
                 default:
-                    Console.WriteLine("[!] Unsupported member access: " + member_access);
                     return Translator.translatorWarning("unsupported member access keyword", "[unsupported usage] " + member_access) + member_access;
             }
         }
@@ -217,6 +237,38 @@ namespace CSharp2Aquila
         {
             // Console.WriteLine("in (): " + parenthesized_expression + " -> " + parenthesized_expression.Expression);
             return "(" + translateExpression(parenthesized_expression.Expression) + ")";
+        }
+
+        private static string translateObjectCreationExpression(ObjectCreationExpressionSyntax object_creation)
+        {
+            /*Console.WriteLine("Object Creation: " + object_creation);
+            Console.WriteLine("\t" + object_creation.NewKeyword);
+            Console.WriteLine("\t" + object_creation.Initializer?.Expressions);
+            Console.WriteLine("\t" + object_creation.Initializer?.Expressions.Count);
+            Console.WriteLine("\t" + object_creation.ArgumentList?.Arguments.Count);
+            Console.WriteLine("\t" + object_creation.Type);
+            Console.WriteLine("\t" + SubSyntaxTranslator.translateType(object_creation.Type));*/
+
+            string type_string = SubSyntaxTranslator.translateType(object_creation.Type);
+            
+            // List creation with values at start ?
+            if (type_string == "list")
+            {
+                if (object_creation.Initializer != null && object_creation.Initializer.Expressions.Count > 0)
+                {
+                    string content = "";
+                    foreach (ExpressionSyntax expression in object_creation.Initializer.Expressions)
+                    {
+                        content += translateExpression(expression) + ", ";
+                    }
+                
+                    return "[" + content.Substring(0, content.Length - 2) + "]"; // remove last ", " in the process
+                }
+
+                return Translator.translatorWarning("not sure that this is accurate. original: " + object_creation, "[uncertainty] " + object_creation) + "[]";
+            }
+
+            return Translator.translatorWarning("unknown object", "[unknown type] " + object_creation) + object_creation;
         }
 
         // misc

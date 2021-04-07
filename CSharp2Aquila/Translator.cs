@@ -9,55 +9,18 @@ namespace CSharp2Aquila
 {
     public static class Translator
     {
-        /* TODO:
-         * look at Functions.cs - approx. line 535: support all the functions in the 'functions_dict'
-         */
-
         private static int _code_depth; // = 0
         private static string addTabs(int n = -1) => new string('\t', n == -1 ? _code_depth : n);
         private static void incrCodeDepth() => _code_depth++;
         private static void decrCodeDepth() => _code_depth = _code_depth == 0 ? 0 : _code_depth - 1;
 
-        public static void traverseTree(SyntaxTree tree)
+        public static string translateFromSourceCode(string src_code)
         {
-            CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
-            // get namespace content originally a 'MemberDeclarationSyntax'
-            var name_space_content = (NamespaceDeclarationSyntax) root.Members[0];
-            // assume there is only thr 'Program' class (other classes not supported yet?)
-            var program_class = (ClassDeclarationSyntax) name_space_content.Members[0];
-            // get all the methods in it
-            foreach (MemberDeclarationSyntax member in program_class.Members)
-            {
-                var method = (MethodDeclarationSyntax) member;
-                Console.WriteLine("\nName: " + method.Identifier);
-                Console.WriteLine("ParameterList: " + method.ParameterList);
-                Console.WriteLine("Parameters: " + method.ParameterList.Parameters.Count);
-                foreach (ParameterSyntax parameter in method.ParameterList.Parameters)
-                {
-                    Console.WriteLine("\t name: " + parameter.Identifier);
-                    Console.WriteLine("\t type: " + parameter.Type);
-                    Console.WriteLine("\t modifiers: " + parameter.Modifiers); // e.g. ref
-                }
-                // Console.WriteLine("Modifiers: " + method.Modifiers); // -> e.g. static
-                Console.WriteLine("ReturnType: " + method.ReturnType);
-                if (method.Body == null) throw new Exception("Body of method is null");
-                Console.WriteLine("Body:");
-                foreach (StatementSyntax statement in method.Body.Statements)
-                {
-                    Console.WriteLine("\tnew list of attr: " + statement.Kind());
-                    foreach (var attribute_list in statement.AttributeLists.Select(x => x.Attributes))
-                    {
-                        Console.WriteLine("\t\tnew attribute list");
-                        foreach (AttributeSyntax attribute in attribute_list)
-                        {
-                            Console.WriteLine("\t\t\tname: " + attribute.Name);
-                        }
-                    }
-                }
-            }
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(src_code);
+            return "/** Automatic translation of CSharp source code to Aquila by https://github.com/Nicolas-Reyland/CSharp2Aquila **/\n\n" + translateAll(tree);
         }
 
-        public static string translateAll(SyntaxTree tree)
+        private static string translateAll(SyntaxTree tree)
         {
             CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
             var name_space_content = (NamespaceDeclarationSyntax) root.Members[0];
@@ -139,7 +102,8 @@ namespace CSharp2Aquila
                 case ReturnStatementSyntax return_statement_syntax:
                     return translateReturnStatement(return_statement_syntax);
                 default:
-                    Console.WriteLine("[!] " + statement_syntax.GetType() + " is not supported.\n\tkind: " + statement_syntax.Kind());
+                    translatorWarning("Unsupported statement", "[unsupported statement] " + statement_syntax);
+                    if (Program.verbose) Console.WriteLine("[!] " + statement_syntax.GetType() + " is not supported.\n\tkind: " + statement_syntax.Kind());
                     return translatorWarning("Unknown statement ", statement_syntax.ToString()) + statement_syntax;
             }
         }
@@ -161,10 +125,11 @@ namespace CSharp2Aquila
                 case InvocationExpressionSyntax invocation:
                     return addTabs() + ExpressionTranslator.translateInvocationExpression(invocation) + "\n";
                 default:
-                    Console.WriteLine("[!] Unsupported expression:\n\t" +
-                                      "raw: " + expression_statement.Expression +
-                                      "\n\ttype: " + expression_statement.Expression.GetType() +
-                                      "\n\tkind: " + expression_statement.Expression.Kind());
+                    translatorWarning("Unsupported expresion", "[unsupported usage] " + expression_statement.Expression);
+                    if (Program.verbose) Console.WriteLine("[!] Unsupported expression:" +
+                                                           "\n\traw: " + expression_statement.Expression +
+                                                           "\n\ttype: " + expression_statement.Expression.GetType() +
+                                                           "\n\tkind: " + expression_statement.Expression.Kind());
                     break;
             }
 
@@ -183,7 +148,7 @@ namespace CSharp2Aquila
             string content = "";
             foreach (StatementSyntax statement_syntax in statement_syntaxes)
             {
-                content += addTabs() + translateStatement(statement_syntax) + "\n";
+                content += translateStatement(statement_syntax) + "\n";
             }
             decrCodeDepth();
 
@@ -203,10 +168,9 @@ namespace CSharp2Aquila
             // extract for-loop content (couldn't find any other way ...) -> did not try SyntaxTree of this for_loop, but idk
             string for_loop_content = injectSourceCode(for_statement.Statement.ToString(), false);
             SyntaxList<StatementSyntax> statement_syntaxes = extractSyntaxList(for_loop_content);
-            for_string += addTabs() + "// for-loop content\n";
             foreach (StatementSyntax statement in statement_syntaxes)
             {
-                for_string += addTabs() + translateStatement(statement) + "\n";
+                for_string += translateStatement(statement) + "\n";
             }
             decrCodeDepth();
             for_string += addTabs() + "end-for\n";
@@ -219,14 +183,13 @@ namespace CSharp2Aquila
             string condition = ExpressionTranslator.translateExpression(if_statement.Condition);
             string if_string = addTabs() + $"if ({condition})\n";
             incrCodeDepth();
-            if_string += addTabs() + "// if-content\n";
             // extract if content
             string if_source_code = injectSourceCode(if_statement.Statement.ToString(), false);
             SyntaxList<StatementSyntax> statement_syntaxes = extractSyntaxList(if_source_code);
             // add if statements
             foreach (StatementSyntax statement_syntax in statement_syntaxes)
             {
-                if_string += addTabs() + translateStatement(statement_syntax) + "\n";
+                if_string += translateStatement(statement_syntax) + "\n";
             }
 
             // else statement
@@ -239,7 +202,7 @@ namespace CSharp2Aquila
                 // add else content
                 foreach (StatementSyntax statement_syntax in else_statement_syntaxes)
                 {
-                    if_string += addTabs() + translateStatement(statement_syntax) + "\n";
+                    if_string += translateStatement(statement_syntax) + "\n";
                 }
             }
             decrCodeDepth();
@@ -268,8 +231,8 @@ namespace CSharp2Aquila
 
         public static string translatorWarning(string msg, string warn_msg)
         {
-            Console.WriteLine("Warning: " + msg + " :: " + warn_msg);
-            return "/** TRANSLATOR WARNING: " + msg + "**/ ";
+            if (Program.verbose) Console.WriteLine("Warning: " + msg + " :: " + warn_msg);
+            return "/** TRANSLATOR WARNING: " + msg + " **/ ";
         }
     }
 }

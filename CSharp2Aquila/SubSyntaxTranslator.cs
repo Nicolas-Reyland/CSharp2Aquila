@@ -19,19 +19,28 @@ namespace CSharp2Aquila
         {
             string s = type_syntax.ToString();
 
-            // basic types
-            if (s == "int" || s == "float" || s == "bool")
+            switch (s)
             {
-                return s;
+                // basic types
+                case "int": case "float": case "bool":
+                    return s;
+                // double -> float
+                case "double":
+                    Translator.translatorWarning("translating \"double\" as \"float\"",
+                        "[uncertainty] type approximation");
+                    return "float";
+                // void -> null
+                case "void":
+                    return "null";
             }
 
             // enumerable types
-            if (s.EndsWith("[]"))
+            if (s.EndsWith("[]") || s.StartsWith("List<"))
             {
                 return "list"; // NOT COOL !
             }
-
-            return "auto";
+            
+            return Translator.translatorWarning("unknown type \"" + s + "\"", "[unsupported type] type approximation") + "auto";
 
             //throw new NotImplementedException("Unsupported type: " + s);
         }
@@ -44,7 +53,10 @@ namespace CSharp2Aquila
             Console.WriteLine("\t" + member_access.OperatorToken);
             Console.WriteLine("\t" + member_access.Expression.Kind());*/
 
-            string func_str, raw_expr = arguments[0].Expression.ToString();
+            string func_str,
+                argument,
+                var_expression;
+            string raw_expr = arguments[0].Expression.ToString();
             switch (member_access.Name.ToString())
             {
                 case "WriteLine":
@@ -101,8 +113,8 @@ namespace CSharp2Aquila
                     // unsupported use of CopyTo function ?
                     if (arguments.Count != 2) return (false, Translator.translatorWarning("num args should be 2 for 'CopyTo' ?!", "[unsupported usage] " + member_access) + member_access);
                     // extract the various expressions
-                    string var_expression = ExpressionTranslator.translateExpression(member_access.Expression);
-                    string target_var_expression = ExpressionTranslator.translateExpression(arguments[0].Expression);
+                    var_expression = ExpressionTranslator.translateExpression(member_access.Expression);
+                    var target_var_expression = ExpressionTranslator.translateExpression(arguments[0].Expression);
                     string index = ExpressionTranslator.translateExpression(arguments[1].Expression);
                     // custom index ?
                     if (index != "0")
@@ -114,8 +126,46 @@ namespace CSharp2Aquila
                     func_str = $"{target_var_expression} = copy_list({var_expression})";
                     
                     return (true, func_str);
+                case "Add":
+                    // unsupported usage
+                    if (arguments.Count != 1)
+                    {
+                        return (false, Translator.translatorWarning("unsupported usage of 'Add' function",
+                            "[unsupported usage] " + member_access) + member_access);
+                    }
+
+                    var_expression = ExpressionTranslator.translateExpression(member_access.Expression); // the list
+                    argument = ExpressionTranslator.translateExpression(arguments[0].Expression); // the value
+
+                    return (true, $"append_value({var_expression}, {argument})");
+                case "RemoveAt":
+                    // unsupported usage
+                    if (arguments.Count != 1)
+                    {
+                        return (false, Translator.translatorWarning("unsupported usage of 'RemoveAt' function",
+                            "[unsupported usage] " + member_access) + member_access);
+                    }
+
+                    var_expression = ExpressionTranslator.translateExpression(member_access.Expression); // the list
+                    argument = ExpressionTranslator.translateExpression(arguments[0].Expression); // the index
+
+                    return (true, $"delete_value_at({var_expression}, {argument})");
+                case "Insert":
+                    // unsupported usage
+                    if (arguments.Count != 2)
+                    {
+                        return (false, Translator.translatorWarning("unsupported usage of 'Insert' function",
+                            "[unsupported usage] " + member_access) + member_access);
+                    }
+
+                    var_expression = ExpressionTranslator.translateExpression(member_access.Expression); // the list
+                    argument = ExpressionTranslator.translateExpression(arguments[0].Expression); // the index
+                    string argument2 = ExpressionTranslator.translateExpression(arguments[1].Expression); // the value
+
+                    return (true, $"insert_value_at({var_expression}, {argument}, {argument2})");
                 default:
-                    return (false, member_access.ToString());
+                    string result = ExpressionTranslator.translateExpression(member_access.Expression) + " /** -> **/ " + member_access.Name;
+                    return (false, Translator.translatorWarning("unknown invocation", "[unknown invocation] " + member_access) + result);
             }
         }
 
