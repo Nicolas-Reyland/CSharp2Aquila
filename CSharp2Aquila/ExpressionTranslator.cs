@@ -29,8 +29,8 @@ namespace CSharp2Aquila
             "while", "end-while",
             "function", "end-function", "recursive",
             "decl", "safe", "overwrite",
-            "overwrite", // not yet
-            "safe", // not yet
+            "overwrite",
+            "safe",
             "trace",
             "null", "auto", "int", "float", "bool", "list",
         };
