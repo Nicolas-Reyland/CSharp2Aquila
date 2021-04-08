@@ -9,15 +9,17 @@ namespace CSharp2Aquila
 {
     public static class Translator
     {
+        private const string GREETING_MSG = "/** Automatic translation of CSharp source code to Aquila by https://github.com/Nicolas-Reyland/CSharp2Aquila **/";
+
         private static int _code_depth; // = 0
-        private static string addTabs(int n = -1) => new string('\t', n == -1 ? _code_depth : n);
+        private static string addTabs(int n = -1) => new('\t', n == -1 ? _code_depth : n);
         private static void incrCodeDepth() => _code_depth++;
         private static void decrCodeDepth() => _code_depth = _code_depth == 0 ? 0 : _code_depth - 1;
 
         public static string translateFromSourceCode(string src_code)
         {
             SyntaxTree tree = CSharpSyntaxTree.ParseText(src_code);
-            return "/** Automatic translation of CSharp source code to Aquila by https://github.com/Nicolas-Reyland/CSharp2Aquila **/\n\n" + translateAll(tree);
+            return GREETING_MSG + "\n\n" + translateAll(tree);
         }
 
         private static string translateAll(SyntaxTree tree)
@@ -33,8 +35,21 @@ namespace CSharp2Aquila
             // call the Main function at the end
             s += "\n/** Manually call the 'Main' function here **/\nMain()\n";
             
-            return s;
+            return CS_SETTINGS + "\n\n" + s;
         }
+
+        private const string CS_SETTINGS = @"/** C# default settings **/
+#setting (interactive) false
+#setting (debug) false
+#setting (trace debug) false
+#setting (translator debug) false
+#setting (fail on context assertions) false
+#setting (check function existence before runtime) false
+#setting (lazy logic) true
+#setting (allow tracing in frozen context) true
+#setting (permafrost) false
+#setting (flame mode) true
+#setting (implicit declaration in assignment) false";
 
         private static string injectSourceCode(string source_code, bool add_curly_braces) =>
 @"namespace CodeInjection

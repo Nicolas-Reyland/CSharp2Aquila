@@ -7,7 +7,7 @@ namespace CSharp2Aquila
 {
     public static class ExpressionTranslator
     {
-        private static readonly Dictionary<string, string> default_values_per_type = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> default_values_per_type = new()
         {
             {
                 "int", "0"
@@ -23,14 +23,13 @@ namespace CSharp2Aquila
             },
         };
         
-        private static readonly List<string> reserved_keywords = new List<string> {
+        private static readonly List<string> reserved_keywords = new()
+        {
             "if", "else", "end-if",
             "for","end-for",
             "while", "end-while",
             "function", "end-function", "recursive",
             "decl", "safe", "overwrite",
-            "overwrite",
-            "safe",
             "trace",
             "null", "auto", "int", "float", "bool", "list",
         };
@@ -128,7 +127,6 @@ namespace CSharp2Aquila
             string left = translateExpression(assignment.Left);
             string right = translateExpression(assignment.Right);
             string operator_ = assignment.OperatorToken.ValueText; // .Text is better for numerical values
-            //Console.WriteLine(assignment.OperatorToken);
 
             return $"{left} {operator_} {right}";
         }
@@ -140,7 +138,6 @@ namespace CSharp2Aquila
             Console.WriteLine("\t" + element_access.Expression.Kind());
             Console.WriteLine("\t" + element_access.Expression.GetType());
             Console.WriteLine("\t" + element_access.ArgumentList.Arguments.Count);*/
-            // Console.WriteLine("\t" + );
 
             // multiple args in accessor ? (e.g. a[b, c])
             if (element_access.ArgumentList.Arguments.Count > 1)
@@ -297,7 +294,7 @@ namespace CSharp2Aquila
                     }
                     break;
             }
-            //
+            // extract the arguments
             string arg_list = SubSyntaxTranslator.translateSeparatedSyntaxList(invocation.ArgumentList.Arguments);
 
             return $"{function_name}({arg_list})";
