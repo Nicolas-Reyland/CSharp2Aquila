@@ -2,3 +2,4 @@ bin
 obj
 .idea
 update.sh
+"publish and copy.bat"
