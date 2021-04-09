@@ -49,7 +49,8 @@ namespace CSharp2Aquila
 #setting (allow tracing in frozen context) true
 #setting (permafrost) false
 #setting (flame mode) true
-#setting (implicit declaration in assignment) false";
+#setting (implicit declaration in assignment) false
+#setting (redirect debug stout & stderr) false";
 
         private static string injectSourceCode(string source_code, bool add_curly_braces) =>
 @"namespace CodeInjection

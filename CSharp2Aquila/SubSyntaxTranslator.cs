@@ -79,7 +79,7 @@ namespace CSharp2Aquila
                     }
                     else
                     {
-                        func_str = Translator.translatorWarning("should add manually a 'print_endl()' call after this", "[missing element]") + " print(";
+                        func_str = "print_value_endl(";
                         func_str += ExpressionTranslator.translateExpression(arguments[0].Expression);
 
                         return (true, func_str + ")");
@@ -104,7 +104,7 @@ namespace CSharp2Aquila
                     }
                     else
                     {
-                        func_str = "print(";
+                        func_str = "print_value(";
                         func_str += ExpressionTranslator.translateExpression(arguments[0].Expression);
 
                         return (true, func_str + ")");
