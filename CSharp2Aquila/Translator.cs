@@ -177,7 +177,7 @@ namespace CSharp2Aquila
             string stop = ExpressionTranslator.translateExpression(for_statement.Condition);
             string step = ExpressionTranslator.translateExpression(for_statement.Incrementors[0]);
 
-            string for_string = addTabs() + $"for ({start}, {stop}, {step})\n";
+            string for_string = addTabs() + $"for ({start}; {stop}; {step})\n";
 
             // string content = "";
             incrCodeDepth();
