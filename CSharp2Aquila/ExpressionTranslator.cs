@@ -102,8 +102,8 @@ namespace CSharp2Aquila
                 case ObjectCreationExpressionSyntax object_creation:
                     return translateObjectCreationExpression(object_creation);
                 default:
-                    if (Program.verbose) Console.WriteLine("[!] Unsupported expression type: " + expression + "\n\tkind: " + expression.Kind() + "\n\t" + expression.GetType());
-                    return expression.ToString();
+                    if (Program.verbose) Console.WriteLine("[!] Unsupported expression type: " + (expression == null ? ".net-null" : expression) + "\n\tkind: " + expression?.Kind() + "\n\t" + expression?.GetType());
+                    return expression == null ? "/** null **/" : expression.ToString();
             }
         }
 

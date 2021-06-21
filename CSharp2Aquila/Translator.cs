@@ -22,18 +22,37 @@ namespace CSharp2Aquila
             return GREETING_MSG + "\n\n" + translateAll(tree);
         }
 
+        private static string translateMemberDeclaration(MemberDeclarationSyntax member_declaration)
+        {
+            string s = "";
+            switch (member_declaration)
+            {
+                case MethodDeclarationSyntax method_member:
+                    s += translateMethodDeclaration(method_member) + "\n";
+                    break;
+                case ClassDeclarationSyntax class_member:
+                    s += class_member.Members.Aggregate("",
+                        (current, sub_member) => current + translateMemberDeclaration(sub_member) + "\n");
+                    break;
+                default:
+                    Console.WriteLine("Could not translate member declaration: " + member_declaration);
+                    break;
+            }
+
+            return s;
+        }
+
         private static string translateAll(SyntaxTree tree)
         {
             CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
             var name_space_content = (NamespaceDeclarationSyntax) root.Members[0];
-            var program_class = (ClassDeclarationSyntax) name_space_content.Members[0]; // assume this (that first class is Program)
-            
-            // convert all functions to a string format & call the 'Main' function at the end in Aquila
-            string s = program_class.Members.Select(x => (MethodDeclarationSyntax) x).Aggregate("",
-                (current, method) => current + translateMethodDeclaration(method) + "\n");
-            
+
+            string s = name_space_content.Members.Aggregate("",
+                (current, member) => current + translateMemberDeclaration(member) + "\n");
+
             // call the Main function at the end
             s += "\n/** Manually call the 'Main' function here **/\nMain()\n";
+            
             
             return CS_SETTINGS + "\n\n" + s;
         }
@@ -81,10 +100,21 @@ namespace CSharp2Aquila
             string return_type = SubSyntaxTranslator.translateType(method_declaration.ReturnType);
             
             // add each statement
-            if (method_declaration.Body == null) throw new Exception("Body is null !!");
+            Console.WriteLine("name: " + name);
+            Console.WriteLine(method_declaration.ExpressionBody);
+            // if (method_declaration.Body == null) throw new Exception("Body is null !!");
             incrCodeDepth();
-            string statements = method_declaration.Body.Statements.Aggregate("",
+            string statements;
+            if (method_declaration.Body != null) statements = method_declaration.Body.Statements.Aggregate("",
                 (current, statement) => current + translateStatement(statement) + "\n");
+            else if (method_declaration.ExpressionBody != null)
+            {
+                statements = $"return({ExpressionTranslator.translateExpression(method_declaration.ExpressionBody.Expression)})";
+            }
+            else
+            {
+                statements = "do_nothing // empty body & empty expression-body in CS";
+            }
             decrCodeDepth();
             
             string function_string = $"function recursive {return_type} {name}(";
@@ -228,15 +258,24 @@ namespace CSharp2Aquila
 
         private static string translateLocalDeclarationStatement(LocalDeclarationStatementSyntax declaration_statement)
         {
-            /*Console.WriteLine("variable decl: " + declaration_statement.Declaration);
+            Console.WriteLine("variable decl: " + declaration_statement.Declaration);
             Console.WriteLine("modifiers: " + declaration_statement.Modifiers);
             foreach (VariableDeclaratorSyntax variable_declarator_syntax in declaration_statement.Declaration.Variables)
             {
                 Console.WriteLine("\tid: " + variable_declarator_syntax.Identifier);
                 Console.WriteLine("\tinit: " + variable_declarator_syntax.Initializer);
-            }*/
+            }
 
-            return addTabs() + SubSyntaxTranslator.handleDeclaration(declaration_statement.Declaration);
+            string type_string = SubSyntaxTranslator.translateType(declaration_statement.Declaration.Type);
+            string s = $"decl {type_string} ";
+            foreach (VariableDeclaratorSyntax variable_declarator in declaration_statement.Declaration.Variables)
+            {
+                s += $"${variable_declarator.Identifier} ";
+                if (variable_declarator.Initializer != null)
+                    s += $"= ({ExpressionTranslator.translateExpression(variable_declarator.Initializer.Value)}) ";
+            }
+
+            return addTabs() + s; /*SubSyntaxTranslator.handleDeclaration(declaration_statement.Declaration);*/
         }
 
         private static string translateReturnStatement(ReturnStatementSyntax return_statement)

@@ -16,7 +16,7 @@ namespace CSharp2Aquila
     - casts (float2int & int2float not implemented)
     - randomness
     - variable deletion
-    - flaw: all arguments are passed as refs in Aquila. no manual copying/warning done";
+    - flaws: lots of 'auxiliary' features of C# are not supported in Aquila";
 
             Console.WriteLine(MSG);
         }

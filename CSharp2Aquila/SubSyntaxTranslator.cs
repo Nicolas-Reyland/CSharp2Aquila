@@ -12,7 +12,7 @@ namespace CSharp2Aquila
             string var_name = ExpressionTranslator.translateToken(variable_declaration.Variables[0].Identifier, false);
             string value = ExpressionTranslator.translateExpression(variable_declaration.Variables[0].Initializer?.Value);
 
-            return $"decl {type_string} {var_name} ({value})";
+            return $"decl {type_string} ${var_name} = ({value})";
         }
 
         public static string translateType(TypeSyntax type_syntax)
